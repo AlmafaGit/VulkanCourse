@@ -1,0 +1,21 @@
+# ninja log v6
+2	40	7842276079577327	glm-populate-prefix/src/glm-populate-stamp/glm-populate-mkdir	76e89b845d0b422f
+805	848	7842276087652114	glm-populate-prefix/src/glm-populate-stamp/glm-populate-update	dd0899bc13c1d4b7
+1033	1083	7842276090017845	CMakeFiles/glm-populate-complete	a9f33b52adff798
+2	40	7842276079577327	C:/Users/Almafa/Desktop/vulkan/beadando1/vkcourse/cmake-build-debug/_deps/glm-subbuild/glm-populate-prefix/src/glm-populate-stamp/glm-populate-mkdir	76e89b845d0b422f
+926	962	7842276088800144	glm-populate-prefix/src/glm-populate-stamp/glm-populate-build	fe8b4503b5e5f6b
+888	926	7842276088441333	C:/Users/Almafa/Desktop/vulkan/beadando1/vkcourse/cmake-build-debug/_deps/glm-subbuild/glm-populate-prefix/src/glm-populate-stamp/glm-populate-configure	325c6b956f8173ae
+848	888	7842276088067973	glm-populate-prefix/src/glm-populate-stamp/glm-populate-patch	39044c3a41ffe4ad
+40	805	7842276087221940	glm-populate-prefix/src/glm-populate-stamp/glm-populate-download	4ce44a7aa49ec6d3
+40	805	7842276087221940	C:/Users/Almafa/Desktop/vulkan/beadando1/vkcourse/cmake-build-debug/_deps/glm-subbuild/glm-populate-prefix/src/glm-populate-stamp/glm-populate-download	4ce44a7aa49ec6d3
+805	848	7842276087652114	C:/Users/Almafa/Desktop/vulkan/beadando1/vkcourse/cmake-build-debug/_deps/glm-subbuild/glm-populate-prefix/src/glm-populate-stamp/glm-populate-update	dd0899bc13c1d4b7
+848	888	7842276088067973	C:/Users/Almafa/Desktop/vulkan/beadando1/vkcourse/cmake-build-debug/_deps/glm-subbuild/glm-populate-prefix/src/glm-populate-stamp/glm-populate-patch	39044c3a41ffe4ad
+888	926	7842276088441333	glm-populate-prefix/src/glm-populate-stamp/glm-populate-configure	325c6b956f8173ae
+926	962	7842276088800144	C:/Users/Almafa/Desktop/vulkan/beadando1/vkcourse/cmake-build-debug/_deps/glm-subbuild/glm-populate-prefix/src/glm-populate-stamp/glm-populate-build	fe8b4503b5e5f6b
+962	997	7842276089158838	glm-populate-prefix/src/glm-populate-stamp/glm-populate-install	8fe3bc06f06b56b3
+962	997	7842276089158838	C:/Users/Almafa/Desktop/vulkan/beadando1/vkcourse/cmake-build-debug/_deps/glm-subbuild/glm-populate-prefix/src/glm-populate-stamp/glm-populate-install	8fe3bc06f06b56b3
+997	1033	7842276089511883	glm-populate-prefix/src/glm-populate-stamp/glm-populate-test	448985f98dfbf6e2
+997	1033	7842276089511883	C:/Users/Almafa/Desktop/vulkan/beadando1/vkcourse/cmake-build-debug/_deps/glm-subbuild/glm-populate-prefix/src/glm-populate-stamp/glm-populate-test	448985f98dfbf6e2
+1033	1083	7842276090017845	glm-populate-prefix/src/glm-populate-stamp/glm-populate-done	a9f33b52adff798
+1033	1083	7842276090017845	C:/Users/Almafa/Desktop/vulkan/beadando1/vkcourse/cmake-build-debug/_deps/glm-subbuild/CMakeFiles/glm-populate-complete	a9f33b52adff798
+1033	1083	7842276090017845	C:/Users/Almafa/Desktop/vulkan/beadando1/vkcourse/cmake-build-debug/_deps/glm-subbuild/glm-populate-prefix/src/glm-populate-stamp/glm-populate-done	a9f33b52adff798

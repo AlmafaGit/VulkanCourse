@@ -1,1 +1,38 @@
-CMakeLists.txt not found in C:\Users\Almafa\Desktop\vulkan\beadando1\vkcourse Select CMakeLists.txt
+"C:\Program Files\JetBrains\CLion 2024.2.1\bin\cmake\win\x64\bin\cmake.exe" -DCMAKE_BUILD_TYPE=Debug "-DCMAKE_MAKE_PROGRAM=C:/Program Files/JetBrains/CLion 2024.2.1/bin/ninja/win/x64/ninja.exe" -G Ninja -S C:\Users\Almafa\Desktop\vulkan\beadando1\vkcourse -B C:\Users\Almafa\Desktop\vulkan\beadando1\vkcourse\cmake-build-debug
+CMake Warning at CMakeLists.txt:15 (find_package):
+  By not providing "Findglfw3.cmake" in CMAKE_MODULE_PATH this project has
+  asked CMake to find a package configuration file provided by "glfw3", but
+  CMake did not find one.
+
+  Could not find a package configuration file provided by "glfw3" (requested
+  version 3.3) with any of the following names:
+
+    glfw3Config.cmake
+    glfw3-config.cmake
+
+  Add the installation prefix of "glfw3" to CMAKE_PREFIX_PATH or set
+  "glfw3_DIR" to a directory containing one of the above files.  If "glfw3"
+  provides a separate development package or SDK, be sure it has been
+  installed.
+
+
+-- Forcing GLFW3 download and build
+-- Including Win32 support
+CMake Warning (dev) at C:/Program Files/JetBrains/CLion 2024.2.1/bin/cmake/win/x64/share/cmake-3.29/Modules/FetchContent.cmake:1352 (message):
+  The DOWNLOAD_EXTRACT_TIMESTAMP option was not given and policy CMP0135 is
+  not set.  The policy's OLD behavior will be used.  When using a URL
+  download, the timestamps of extracted files should preferably be that of
+  the time of extraction, otherwise code that depends on the extracted
+  contents might not be rebuilt if the URL changes.  The OLD behavior
+  preserves the timestamps from the archive instead, but this is usually not
+  what you want.  Update your project to the NEW behavior or specify the
+  DOWNLOAD_EXTRACT_TIMESTAMP option with a value of true to avoid this
+  robustness issue.
+Call Stack (most recent call first):
+  external/CMakeLists.txt:20 (FetchContent_Declare)
+This warning is for project developers.  Use -Wno-dev to suppress it.
+
+Using glslangValidator: C:/VulkanSDK/1.3.296.0/Bin/glslangValidator.exe
+-- Configuring done (0.7s)
+-- Generating done (0.1s)
+-- Build files have been written to: C:/Users/Almafa/Desktop/vulkan/beadando1/vkcourse/cmake-build-debug
