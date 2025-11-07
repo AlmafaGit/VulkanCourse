@@ -1,2 +1,3 @@
 *.zip
 cmake-build-debug/
+*/.idea/
