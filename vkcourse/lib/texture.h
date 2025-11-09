@@ -93,9 +93,9 @@ private:
     uint32_t m_width;
     uint32_t m_height;
 
-    VkImage m_image;
-    VkDeviceMemory m_memory;
+    VkImage m_image         = VK_NULL_HANDLE;
+    VkDeviceMemory m_memory = VK_NULL_HANDLE;
 
-    VkImageView m_view;
-    VkSampler m_sampler;
+    VkImageView m_view      = VK_NULL_HANDLE;
+    VkSampler m_sampler     = VK_NULL_HANDLE;
 };

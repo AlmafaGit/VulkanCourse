@@ -58,14 +58,13 @@ class DescriptorPool {
 public:
     DescriptorPool();
 
-    VkResult Create(VkDevice                                              device,
-                    const std::unordered_map<VkDescriptorType, uint32_t>& countPerType,
-                    const uint32_t                                        maxSetCount);
+    VkResult
+    Create(VkDevice device, const std::unordered_map<VkDescriptorType, uint32_t>& countPerType, uint32_t maxSetCount);
 
-    VkDescriptorSetLayout CreateLayout(const std::vector<VkDescriptorSetLayoutBinding>& bindings);
-    VkDescriptorSet       CreateSet(VkDescriptorSetLayout layout);
+    VkDescriptorSetLayout createLayout(const std::vector<VkDescriptorSetLayoutBinding>& bindings);
+    VkDescriptorSet       createSet(VkDescriptorSetLayout layout);
+    void                  Destroy();
 
-    void Destroy();
 private:
     VkDevice                                          m_device;
     VkDescriptorPool                                  m_descriptorPool;

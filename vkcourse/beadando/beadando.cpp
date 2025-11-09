@@ -16,9 +16,8 @@
 
 #include "camera.h"
 #include "context.h"
-#include "grid.h"
 #include "imgui_integration.h"
-#include "simple_cube.h"
+#include "pedestal.h"
 #include "swapchain.h"
 #include "wrappers.h"
 
@@ -109,7 +108,7 @@ int main(int /*argc*/, char** /*argv*/)
     // Create the window to render onto
     uint32_t    windowWidth  = 1024;
     uint32_t    windowHeight = 800;
-    GLFWwindow* window       = glfwCreateWindow(windowWidth, windowHeight, "02_triangle GLFW", NULL, NULL);
+    GLFWwindow* window       = glfwCreateWindow(windowWidth, windowHeight, "beadando", NULL, NULL);
 
     Camera camera({windowWidth, windowHeight}, 45.0f, 0.1f, 100.0f);
 
@@ -139,7 +138,8 @@ int main(int /*argc*/, char** /*argv*/)
     VkResult  swapchainCreated = swapchain.Create();
     assert(swapchainCreated == VK_SUCCESS);
 
-    VkCommandPool cmdPool = context.CreateCommandPool();
+    VkCommandPool cmdPool = VK_NULL_HANDLE;
+    CreateCommandPool(device, queueFamilyIdx, &cmdPool); // TODO: check result
 
     std::vector<VkCommandBuffer> cmdBuffers = AllocateCommandBuffers(device, cmdPool, swapchain.images().size());
 
@@ -153,13 +153,8 @@ int main(int /*argc*/, char** /*argv*/)
     Texture depthTexture = Texture::Create2D(context.physicalDevice(), context.device(), VK_FORMAT_D32_SFLOAT,
                                              swapchain.surfaceExtent(), VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
 
-    SimpleCube cube;
-    cube.Create(context, swapchain.format(), sizeof(Camera::CameraPushConstant));
-
-    Grid grid;
-    grid.Create(context, swapchain.format(), sizeof(Camera::CameraPushConstant), 4.0f, 4.0f, 10);
-    grid.position(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f)));
-    grid.rotation(glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f)));
+    Pedestal pedestal;
+    pedestal.Create(context, swapchain.format(), sizeof(Camera::CameraPushConstant));
 
     glfwShowWindow(window);
 
@@ -216,7 +211,7 @@ int main(int /*argc*/, char** /*argv*/)
                 glm::rotate(glm::mat4(1.0f), glm::radians((float)rotationDegree[1]), glm::vec3(0.0f, 1.0f, 0.0f)) *
                 glm::rotate(glm::mat4(1.0f), glm::radians((float)rotationDegree[2]), glm::vec3(0.0f, 0.0f, 1.0f));
 
-            cube.rotation(cubeRotation);
+            pedestal.rotation(cubeRotation);
         }
 
         // Get new image to render to
@@ -285,8 +280,7 @@ int main(int /*argc*/, char** /*argv*/)
 
             camera.PushConstants(cmdBuffer);
 
-            cube.Draw(cmdBuffer);
-            grid.Draw(cmdBuffer);
+            pedestal.Draw(cmdBuffer);
 
             // Render things
             imIntegration.Draw(cmdBuffer);
@@ -328,8 +322,7 @@ int main(int /*argc*/, char** /*argv*/)
     vkDestroyCommandPool(device, cmdPool, nullptr);
 
     camera.Destroy(device);
-    grid.Destroy(context);
-    cube.Destroy(device);
+    pedestal.Destroy(device);
     swapchain.Destroy();
     context.Destroy();
 

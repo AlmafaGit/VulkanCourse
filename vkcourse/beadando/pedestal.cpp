@@ -1,88 +1,29 @@
-#include "grid.h"
+#include "pedestal.h"
 
-#include <GLFW/glfw3.h>
-#include <cstdio>
-
+#include <cstdint>
+#include <cstring>
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
-#include "buffer.h"
 #include "context.h"
-#include "descriptors.h"
-#include "texture.h"
 #include "wrappers.h"
 
 namespace {
-#include "grid.frag_include.h"
-#include "grid.vert_include.h"
 
-struct Vertex {
-    float x;
-    float y;
-    float z;
-    float u;
-    float v;
+#include "triangle_in.frag_include.h"
+#include "triangle_in.vert_include.h"
+
+static constexpr float g_cubeVertices[] = {
+#include "pedestal_vertices.inc"
 };
+static constexpr size_t g_cubePerVertexItemCount = 3 + 2 + 3;
+static constexpr size_t g_cubeVertexSize         = sizeof(float) * g_cubePerVertexItemCount;
+static constexpr size_t g_cubeVertexCount        = sizeof(g_cubeVertices) / g_cubeVertexSize;
 
-static std::vector<Vertex> buildGrid(float width, float height, uint32_t count)
-{
-    // Output format: { x, y, z, u, v }
-    std::vector<Vertex> result;
-
-    float halfWidth  = width / 2.0f;
-    float halfHeight = height / 2.0f;
-
-    for (uint32_t y = 0; y <= count; y++) {
-        for (uint32_t x = 0; x <= count; x++) {
-            Vertex vertex = {
-                (float)x / count * width - halfWidth,
-                (float)y / count * height - halfHeight,
-                0.0f,
-                (float)x / count,
-                (float)y / count,
-            };
-
-            result.push_back(vertex);
-        }
-    }
-
-    return result;
-}
-
-static std::vector<uint32_t> buildIndexList(uint32_t splitCount)
-{
-    std::vector<uint32_t> indexList;
-
-    for (uint32_t y = 0; y < splitCount; y++) {
-        for (uint32_t x = 0; x < splitCount; x++) {
-            uint32_t row     = y * (splitCount + 1);
-            uint32_t rowNext = (y + 1) * (splitCount + 1);
-
-            uint32_t triangleIndices[] = {
-                // triangle 1
-                row + x,
-                row + x + 1,
-                rowNext + x + 1,
-
-                // triangle 2
-                row + x,
-                rowNext + x + 1,
-                rowNext + x,
-            };
-
-            indexList.insert(indexList.end(), triangleIndices, triangleIndices + 6);
-        }
-    }
-
-    return indexList;
-}
-
-VkPipelineLayout CreatePipelineLayout(const VkDevice                            device,
-                                      const std::vector<VkDescriptorSetLayout>& layouts,
-                                      uint32_t                                  pushConstantSize = 0)
+VkPipelineLayout CreateEmptyPipelineLayout(const VkDevice device, uint32_t pushConstantSize = 0)
 {
     const VkPushConstantRange pushConstantRange = {
-        .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+        .stageFlags = VK_SHADER_STAGE_ALL,
         .offset     = 0,
         .size       = pushConstantSize,
     };
@@ -91,8 +32,8 @@ VkPipelineLayout CreatePipelineLayout(const VkDevice                            
         .sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .pNext                  = nullptr,
         .flags                  = 0,
-        .setLayoutCount         = (uint32_t)layouts.size(),
-        .pSetLayouts            = layouts.data(),
+        .setLayoutCount         = 0,
+        .pSetLayouts            = nullptr,
         .pushConstantRangeCount = (pushConstantSize > 0) ? 1u : 0u,
         .pPushConstantRanges    = &pushConstantRange,
     };
@@ -103,6 +44,7 @@ VkPipelineLayout CreatePipelineLayout(const VkDevice                            
 
     return layout;
 }
+
 VkPipeline CreateSimplePipeline(const VkDevice         device,
                                 const VkFormat         colorFormat,
                                 const VkPipelineLayout pipelineLayout,
@@ -133,18 +75,15 @@ VkPipeline CreateSimplePipeline(const VkDevice         device,
 
     const VkVertexInputBindingDescription bindingInfo = {
         .binding   = 0,
-        .stride    = sizeof(float) * 5,
+        .stride    = sizeof(float) * (3 + 2 + 3),
         .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
     };
 
-    // TASK: configure the attributes to also pass UV coordinates
-    const std::vector<VkVertexInputAttributeDescription> attributeInfos = {
-        {
-            .location = 0,
-            .binding  = 0,
-            .format   = VK_FORMAT_R32G32B32_SFLOAT,
-            .offset   = 0u,
-        },
+    const VkVertexInputAttributeDescription attributeInfo = {
+        .location = 0,
+        .binding  = 0,
+        .format   = VK_FORMAT_R32G32B32_SFLOAT,
+        .offset   = 0u,
     };
 
     const VkPipelineVertexInputStateCreateInfo vertexInputInfo = {
@@ -153,8 +92,8 @@ VkPipeline CreateSimplePipeline(const VkDevice         device,
         .flags                           = 0,
         .vertexBindingDescriptionCount   = 1u,
         .pVertexBindingDescriptions      = &bindingInfo,
-        .vertexAttributeDescriptionCount = (uint32_t)attributeInfos.size(),
-        .pVertexAttributeDescriptions    = attributeInfos.data(),
+        .vertexAttributeDescriptionCount = 1u,
+        .pVertexAttributeDescriptions    = &attributeInfo,
     };
 
     // input assembly
@@ -190,7 +129,7 @@ VkPipeline CreateSimplePipeline(const VkDevice         device,
         .rasterizerDiscardEnable = VK_FALSE,
         .polygonMode             = VK_POLYGON_MODE_FILL,
         .cullMode                = VK_CULL_MODE_NONE,
-        .frontFace               = VK_FRONT_FACE_CLOCKWISE,
+        .frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE,
         .depthBiasEnable         = VK_FALSE,
         .depthBiasConstantFactor = 0.0f, // Disabled
         .depthBiasClamp          = 0.0f, // Disabled
@@ -240,13 +179,13 @@ VkPipeline CreateSimplePipeline(const VkDevice         device,
 
     // color blend
     const VkPipelineColorBlendAttachmentState blendAttachment = {
-        .blendEnable = VK_TRUE,
+        .blendEnable = VK_FALSE,
         // as blend is disabled fill these with default values,
-        .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
-        .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+        .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_COLOR,
+        .dstColorBlendFactor = VK_BLEND_FACTOR_DST_COLOR,
         .colorBlendOp        = VK_BLEND_OP_ADD,
-        .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
-        .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+        .srcAlphaBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+        .dstAlphaBlendFactor = VK_BLEND_FACTOR_DST_ALPHA,
         .alphaBlendOp        = VK_BLEND_OP_ADD,
         // Important!
         .colorWriteMask =
@@ -319,117 +258,54 @@ VkPipeline CreateSimplePipeline(const VkDevice         device,
 
 } // anonymous namespace
 
-Grid::Grid()
+Pedestal::Pedestal()
     : m_pipelineLayout(VK_NULL_HANDLE)
     , m_pipeline(VK_NULL_HANDLE)
-    , m_constantOffset(0)
 {
 }
 
-VkResult Grid::Create(Context& context,
-                      const VkFormat colorFormat,
-                      const uint32_t pushConstantStart,
-                      float          width,
-                      float          height,
-                      uint32_t       count)
+VkResult Pedestal::Create(const Context& context, const VkFormat colorFormat, const uint32_t pushConstantStart)
 {
-    const VkDevice       device         = context.device();
-    const VkShaderModule shaderVertex   = CreateShaderModule(device, SPV_grid_vert, sizeof(SPV_grid_vert));
-    const VkShaderModule shaderFragment = CreateShaderModule(device, SPV_grid_frag, sizeof(SPV_grid_frag));
-
-    m_device = device;
-
-    // TASK: load the "./images/checker-map_tho.png" image
-    const std::string imagePath = "./images/checker-map_tho.png";
-
-    // TASK:configure the descriptorset layouts to also accept the image (for the shader)
-    const std::vector<VkDescriptorSetLayoutBinding> layoutBindings = {
-        VkDescriptorSetLayoutBinding{
-            .binding            = 0,
-            .descriptorType     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-            .descriptorCount    = 1,
-            .stageFlags         = VK_SHADER_STAGE_ALL,
-            .pImmutableSamplers = nullptr,
-        },
-    };
-
-    m_descSetLayout = context.descriptorPool().createLayout(layoutBindings);
+    const VkDevice       device       = context.device();
+    const VkShaderModule shaderVertex = CreateShaderModule(device, SPV_triangle_in_vert, sizeof(SPV_triangle_in_vert));
+    const VkShaderModule shaderFragment =
+        CreateShaderModule(device, SPV_triangle_in_frag, sizeof(SPV_triangle_in_frag));
 
     m_constantOffset = pushConstantStart;
-    m_pipelineLayout = CreatePipelineLayout(device, {m_descSetLayout}, m_constantOffset + sizeof(ModelPushConstant));
+    m_pipelineLayout = CreateEmptyPipelineLayout(device, m_constantOffset + sizeof(ModelPushConstant));
     m_pipeline       = CreateSimplePipeline(device, colorFormat, m_pipelineLayout, shaderVertex, shaderFragment);
 
     vkDestroyShaderModule(device, shaderVertex, nullptr);
     vkDestroyShaderModule(device, shaderFragment, nullptr);
 
-    {
-        const std::vector<Vertex> vertexData     = buildGrid(width, height, count);
-        const uint32_t            vertexDataSize = vertexData.size() * sizeof(vertexData[0]);
-        m_vertexBuffer =
-            BufferInfo::Create(context.physicalDevice(), device, vertexDataSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-        m_vertexBuffer.Update(device, vertexData.data(), vertexDataSize);
-    }
+    m_buffer = BufferInfo::Create(context.physicalDevice(), device, sizeof(g_cubeVertices), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    m_buffer.Update(device, g_cubeVertices, sizeof(g_cubeVertices));
 
-    {
-        const std::vector<uint32_t> indexData     = buildIndexList(count);
-        const uint32_t              indexDataSize = indexData.size() * sizeof(indexData[0]);
-        m_indexBuffer =
-            BufferInfo::Create(context.physicalDevice(), device, indexDataSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-        m_indexBuffer.Update(device, indexData.data(), indexDataSize);
-        m_vertexCount = indexData.size();
-    }
-
-    m_uniformBuffer =
-        BufferInfo::Create(context.physicalDevice(), device, sizeof(UniformBuffer), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT);
-
-    const UniformBuffer data = {
-        .color = glm::vec4(1.0f, 0.2f, 1.0f, 1.0f),
-        .time  = (float)glfwGetTime(),
-    };
-    m_uniformBuffer.Update(device, &data, sizeof(data));
-
-    m_modelSet = context.descriptorPool().createSet(m_descSetLayout);
-
-    DescriptorSetMgmt setMgmt(m_modelSet);
-    setMgmt.SetBuffer(0, m_uniformBuffer.buffer);
-    // TASK: set the image to binding 1
-    setMgmt.Update(device);
+    m_vertexCount = g_cubeVertexCount;
 
     return VK_SUCCESS;
 }
 
-void Grid::Destroy(Context& context)
+void Pedestal::Destroy(const VkDevice device)
 {
-    const VkDevice device = context.device();
-
-    m_texture.Destroy(device);
-    m_uniformBuffer.Destroy(device);
-    m_vertexBuffer.Destroy(device);
-    m_indexBuffer.Destroy(device);
+    m_buffer.Destroy(device);
     vkDestroyPipeline(device, m_pipeline, nullptr);
     vkDestroyPipelineLayout(device, m_pipelineLayout, nullptr);
 }
 
-void Grid::Draw(const VkCommandBuffer cmdBuffer)
+void Pedestal::Draw(const VkCommandBuffer cmdBuffer, bool bindPipeline)
 {
-    const UniformBuffer data = {
-        .color = glm::vec4(1.0f, 0.2f, 1.0f, 1.0f),
-        .time  = (float)glfwGetTime(),
-    };
-    m_uniformBuffer.Update(m_device, &data, sizeof(data));
-
     ModelPushConstant modelData = {
         .model = glm::mat4(1.0f) * m_position * m_rotation,
     };
 
-    vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
-    vkCmdPushConstants(cmdBuffer, m_pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, m_constantOffset,
+    if (bindPipeline) {
+        vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
+    }
+    vkCmdPushConstants(cmdBuffer, m_pipelineLayout, VK_SHADER_STAGE_ALL, m_constantOffset,
                        sizeof(ModelPushConstant), &modelData);
 
-    vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_modelSet, 0,
-                            nullptr);
     VkDeviceSize nullOffset = 0u;
-    vkCmdBindVertexBuffers(cmdBuffer, 0u, 1u, &m_vertexBuffer.buffer, &nullOffset);
-    vkCmdBindIndexBuffer(cmdBuffer, m_indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdDrawIndexed(cmdBuffer, m_vertexCount, 1, 0, 0, 0);
+    vkCmdBindVertexBuffers(cmdBuffer, 0u, 1u, &m_buffer.buffer, &nullOffset);
+    vkCmdDraw(cmdBuffer, m_vertexCount, 1, 0, 0);
 }

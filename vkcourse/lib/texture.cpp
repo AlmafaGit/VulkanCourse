@@ -296,10 +296,18 @@ VkResult Texture::CreateImage(
 }
 
 void Texture::Destroy(const VkDevice device) {
-    vkDestroySampler(device, m_sampler, nullptr);
-    vkDestroyImageView(device, m_view, nullptr);
-    vkDestroyImage(device, m_image, nullptr);
-    vkFreeMemory(device, m_memory, nullptr);
+    if (m_sampler != VK_NULL_HANDLE) {
+        vkDestroySampler(device, m_sampler, nullptr);
+    }
+    if (m_view != VK_NULL_HANDLE) {
+        vkDestroyImageView(device, m_view, nullptr);
+    }
+    if (m_image != VK_NULL_HANDLE) {
+        vkDestroyImage(device, m_image, nullptr);
+    }
+    if (m_memory != VK_NULL_HANDLE) {
+        vkFreeMemory(device, m_memory, nullptr);
+    }
 }
 
 bool Texture::Create2DSampler(const VkDevice device) {
@@ -409,4 +417,3 @@ bool Texture::UploadFromBuffer(
 
     return true;
 }
-

@@ -1,21 +1,20 @@
 #include "descriptors.h"
 
 #include <cassert>
-#include <sstream>
 #include <stdexcept>
 #include <unordered_map>
-#include <vulkan/vulkan_core.h>
+#include <utility>
 
 size_t descriptorSetLayoutBindingVectorHash(const std::vector<VkDescriptorSetLayoutBinding>& bindings)
+// TODO: avoid number -> string -> number conversion
 {
-    // TODO: avoid number -> string -> number conversion
-    std::stringstream stream;
+    std::string bindingsString = "";
     for (const auto binding : bindings) {
-        stream << std::to_string(binding.binding) << "," << std::to_string(binding.descriptorCount) << ","
-               << std::to_string(binding.descriptorType) << ","
-               << std::to_string(reinterpret_cast<uint64_t>(binding.pImmutableSamplers)) << ";";
+        bindingsString += std::to_string(binding.binding) + "," + std::to_string(binding.descriptorCount) + "," +
+                          std::to_string(binding.descriptorType) + "," +
+                          std::to_string(reinterpret_cast<uint64_t>(binding.pImmutableSamplers)) + ",";
     }
-    return std::hash<std::string>()(stream.str());
+    return std::hash<std::string>()(bindingsString);
 }
 
 DescriptorMgmt::DescriptorMgmt()
@@ -24,7 +23,8 @@ DescriptorMgmt::DescriptorMgmt()
 
 void DescriptorMgmt::SetDescriptor(uint32_t bindingIdx, VkDescriptorType type, uint32_t count)
 {
-    const VkDescriptorSetLayoutBinding binding = {
+
+    VkDescriptorSetLayoutBinding binding = {
         .binding            = bindingIdx,
         .descriptorType     = type,
         .descriptorCount    = count,
@@ -51,7 +51,7 @@ void DescriptorMgmt::CreatePool(const VkDevice device)
         poolSizes.push_back({entry.first, entry.second});
     }
 
-    const VkDescriptorPoolCreateInfo createInfo = {
+    VkDescriptorPoolCreateInfo createInfo = {
         .sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
         .pNext         = nullptr,
         .flags         = 0,
@@ -98,7 +98,7 @@ void DescriptorMgmt::CreateDescriptorSets(const VkDevice device, uint32_t count)
 
     std::vector<VkDescriptorSetLayout> layouts(count, m_layout);
 
-    const VkDescriptorSetAllocateInfo createInfo = {
+    VkDescriptorSetAllocateInfo createInfo = {
         .sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
         .pNext              = nullptr,
         .descriptorPool     = m_pool,
@@ -137,7 +137,7 @@ void DescriptorSetMgmt::SetImage(uint32_t idx, VkImageView view, VkSampler sampl
 
 void DescriptorSetMgmt::Update(const VkDevice device)
 {
-   const  VkWriteDescriptorSet baseInfo = {
+    VkWriteDescriptorSet baseInfo = {
         .sType            = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
         .pNext            = nullptr,
         .dstSet           = m_set,
@@ -179,21 +179,13 @@ void DescriptorSetMgmt::Update(const VkDevice device)
 }
 
 DescriptorPool::DescriptorPool()
-    : m_device(VK_NULL_HANDLE)
-    , m_descriptorPool(VK_NULL_HANDLE)
-    , m_layouts({})
 {
 }
 
 VkResult DescriptorPool::Create(VkDevice                                              device,
                                 const std::unordered_map<VkDescriptorType, uint32_t>& countPerType,
-                                const uint32_t                                        maxSetCount)
+                                uint32_t                                              maxSetCount)
 {
-    // Make sure that the pool can't be re-inited again
-    if (m_device != VK_NULL_HANDLE) {
-        return VK_SUCCESS;
-    }
-
     m_device = device;
 
     std::vector<VkDescriptorPoolSize> poolSizes;
@@ -216,15 +208,10 @@ VkResult DescriptorPool::Create(VkDevice                                        
         .pPoolSizes    = poolSizes.data(),
     };
 
-    const VkResult result = vkCreateDescriptorPool(device, &poolCreateInfo, nullptr, &m_descriptorPool);
-    if (result != VK_SUCCESS) {
-        throw std::runtime_error("Failed to create descriptor pool!");
-        return result;
-    }
-    return VK_SUCCESS;
+    return vkCreateDescriptorPool(device, &poolCreateInfo, nullptr, &m_descriptorPool);
 }
 
-VkDescriptorSetLayout DescriptorPool::CreateLayout(const std::vector<VkDescriptorSetLayoutBinding>& bindings)
+VkDescriptorSetLayout DescriptorPool::createLayout(const std::vector<VkDescriptorSetLayoutBinding>& bindings)
 {
     const size_t bindingsHash = descriptorSetLayoutBindingVectorHash(bindings);
 
@@ -250,7 +237,7 @@ VkDescriptorSetLayout DescriptorPool::CreateLayout(const std::vector<VkDescripto
     return it->second;
 }
 
-VkDescriptorSet DescriptorPool::CreateSet(VkDescriptorSetLayout layout)
+VkDescriptorSet DescriptorPool::createSet(VkDescriptorSetLayout layout)
 {
     const VkDescriptorSetAllocateInfo allocInfo{
         .sType              = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
@@ -270,8 +257,9 @@ VkDescriptorSet DescriptorPool::CreateSet(VkDescriptorSetLayout layout)
 
 void DescriptorPool::Destroy()
 {
-    for (const std::pair<const size_t, VkDescriptorSetLayout>& item : m_layouts) {
-        vkDestroyDescriptorSetLayout(m_device, item.second, nullptr);
+    // TODO: destroy sets beforehand
+    for (const auto& it : m_layouts) {
+        vkDestroyDescriptorSetLayout(m_device, it.second, nullptr);
     }
 
     vkDestroyDescriptorPool(m_device, m_descriptorPool, nullptr);
