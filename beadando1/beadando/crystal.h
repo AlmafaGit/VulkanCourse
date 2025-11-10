@@ -8,7 +8,7 @@
 
 class Context;
 
-class Diamond {
+class Crystal {
 public:
     struct ModelPushConstant {
         glm::mat4 model;
@@ -19,10 +19,10 @@ public:
         float     time;
     };
 
-    Diamond();
+    Crystal();
 
-    VkResult Create(const Context& context, const VkFormat colorFormat, const uint32_t pushConstantStart);
-    void     Destroy(const VkDevice device);
+    VkResult Create(Context& context, const VkFormat colorFormat, const uint32_t pushConstantStart);
+    void     Destroy(Context& context);
     void     Draw(const VkCommandBuffer cmdBuffer, bool bindPipeline = true);
 
     void position(const glm::mat4& position) { m_position = position; }
@@ -32,8 +32,15 @@ private:
     VkPipelineLayout m_pipelineLayout = VK_NULL_HANDLE;
     VkPipeline       m_pipeline       = VK_NULL_HANDLE;
     uint32_t         m_constantOffset = 0;
-    BufferInfo       m_buffer         = {};
+    BufferInfo       m_vertexBuffer   = {};
+    BufferInfo       m_indexBuffer    = {};
     uint32_t         m_vertexCount    = 0;
     glm::mat4        m_position       = glm::mat4(1.0f);
     glm::mat4        m_rotation       = glm::mat4(1.0f);
+
+    BufferInfo            m_uniformBuffer = {};
+    VkDescriptorPool      m_pool          = VK_NULL_HANDLE;
+    VkDescriptorSetLayout m_descSetLayout = VK_NULL_HANDLE;
+    VkDescriptorSet       m_modelSet      = VK_NULL_HANDLE;
+    VkDevice              m_device        = VK_NULL_HANDLE;
 };

@@ -3,8 +3,8 @@ add_executable(beadando
 
         pedestal.cpp
         pedestal.h
-        diamond.cpp
-        diamond.h
+        crystal.cpp
+        crystal.h
 )
 
 target_include_directories(beadando
@@ -18,4 +18,6 @@ target_link_libraries(beadando
 add_shaders(beadando
         triangle_in.vert SPV_triangle_in_vert
         triangle_in.frag SPV_triangle_in_frag
+        crystal.vert SPV_crystal_vert
+        crystal.frag SPV_crystal_frag
 )

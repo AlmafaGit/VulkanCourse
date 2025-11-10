@@ -15,6 +15,7 @@
 
 #include "camera.h"
 #include "context.h"
+#include "crystal.h"
 #include "imgui_integration.h"
 #include "pedestal.h"
 #include "swapchain.h"
@@ -157,6 +158,9 @@ int main(int /*argc*/, char** /*argv*/)
     Pedestal pedestal;
     pedestal.Create(context, swapchain.format(), sizeof(Camera::CameraPushConstant));
 
+    Crystal crystal;
+    crystal.Create(context, swapchain.format(), sizeof(Camera::CameraPushConstant));
+
     glfwShowWindow(window);
 
     const VkViewport viewport = {
@@ -282,6 +286,7 @@ int main(int /*argc*/, char** /*argv*/)
             camera.PushConstants(cmdBuffer);
 
             pedestal.Draw(cmdBuffer);
+            crystal.Draw(cmdBuffer);
 
             // Render things
             imIntegration.Draw(cmdBuffer);
@@ -324,6 +329,7 @@ int main(int /*argc*/, char** /*argv*/)
 
     camera.Destroy(device);
     pedestal.Destroy(context);
+    crystal.Destroy(context);
     swapchain.Destroy();
     context.Destroy();
 
