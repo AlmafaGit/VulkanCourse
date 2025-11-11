@@ -190,37 +190,15 @@ int main(int /*argc*/, char** /*argv*/)
             imIntegration.NewFrame();
             ImGui::NewFrame();
 
-            ImGui::ShowDemoWindow();
             ImGui::Begin("Info");
 
-            static int  rotationDegree[3] = {0, 0, 0};
-            static bool autoInc           = false;
-
-            ImGui::Checkbox("Use auto increment", &autoInc);
-
-            if (autoInc) {
-                rotationDegree[0] = (rotationDegree[0] + 1) % 360;
-                rotationDegree[1] = (rotationDegree[1] + 1) % 360;
-                rotationDegree[2] = (rotationDegree[2] + 1) % 360;
-            }
-            ImGui::SliderInt3("Rotation", rotationDegree, 0, 360);
             const glm::vec3& cameraPosition = camera.position();
-            ImGui::Text("Camera position x: %.3f y: %.3f z: %.3f", cameraPosition.x, cameraPosition.y,
-                        cameraPosition.z);
+            ImGui::Text("Camera position x: %.3f y: %.3f z: %.3f", cameraPosition.x, cameraPosition.y, cameraPosition.z);
             const glm::vec3& targetPosition = camera.lookAtPosition();
-            ImGui::Text("Target position x: %.3f y: %.3f z: %.3f", targetPosition.x, targetPosition.y,
-                        targetPosition.z);
+            ImGui::Text("Target position x: %.3f y: %.3f z: %.3f", targetPosition.x, targetPosition.y, targetPosition.z);
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
             ImGui::End();
             ImGui::Render();
-
-            // Hacked in rotation
-            glm::mat4 cubeRotation =
-                glm::rotate(glm::mat4(1.0f), glm::radians((float)rotationDegree[0]), glm::vec3(1.0f, 0.0f, 0.0f)) *
-                glm::rotate(glm::mat4(1.0f), glm::radians((float)rotationDegree[1]), glm::vec3(0.0f, 1.0f, 0.0f)) *
-                glm::rotate(glm::mat4(1.0f), glm::radians((float)rotationDegree[2]), glm::vec3(0.0f, 0.0f, 1.0f));
-
-            pedestal.rotation(cubeRotation);
         }
 
         // Get new image to render to
