@@ -1,5 +1,5 @@
 #pragma once
-//       position       |   texture  |  normals
+//       position       |   texture  |  TODO normals
 //   x      y       z       u      v      x       y      z
    -0.7f,  0.0f,  -0.7f,   0.0f, 0.0f,   0.0f,  0.0f, -1.0f, //A 0
     0.4f,  0.2f, -0.4f,   1.0f, 1.0f,   0.0f,  0.0f, -1.0f, //B 1

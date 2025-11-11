@@ -31,7 +31,7 @@ static constexpr float g_crystalVertices[] = {
 #include "crystal_vertices.inc"
 };
 
-
+//jobb lenne ha számítanám nem betölteném, de ahhoz számolni kéne, a normálokat is elég volt számolni (és még az se biztos hogy jó mert még nincs shading)
 static std::vector<Vertex> buildCrystal(const float* crystalVertices, size_t arraySize)
 {
     size_t crystalPerVertexItemCount = 3;

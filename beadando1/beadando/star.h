@@ -1,16 +1,14 @@
 #pragma once
 
-#include <cstdint>
-
 #include <vulkan/vulkan_core.h>
 
-#include "buffer.h"
-#include "texture.h"
 #include "glm_config.h"
+#include "buffer.h"
+
 
 class Context;
 
-class Grid {
+class Star {
 public:
     struct ModelPushConstant {
         glm::mat4 model;
@@ -21,16 +19,11 @@ public:
         float     time;
     };
 
-    Grid();
+    Star();
 
-    VkResult Create(Context& context,
-                    const VkFormat colorFormat,
-                    const uint32_t pushConstantStart,
-                    float          width,
-                    float          height,
-                    uint32_t       count);
+    VkResult Create(Context& context, const VkFormat colorFormat, const uint32_t pushConstantStart);
     void     Destroy(Context& context);
-    void     Draw(const VkCommandBuffer cmdBuffer);
+    void     Draw(const VkCommandBuffer cmdBuffer, bool bindPipeline = true);
 
     void position(const glm::mat4& position) { m_position = position; }
     void rotation(const glm::mat4& rotation) { m_rotation = rotation; }
@@ -50,6 +43,4 @@ private:
     VkDescriptorSetLayout m_descSetLayout = VK_NULL_HANDLE;
     VkDescriptorSet       m_modelSet      = VK_NULL_HANDLE;
     VkDevice              m_device        = VK_NULL_HANDLE;
-
-    Texture               m_texture       = {};
 };

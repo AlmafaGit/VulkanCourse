@@ -5,6 +5,8 @@ add_executable(beadando
         pedestal.h
         crystal.cpp
         crystal.h
+        star.cpp
+        star.h
 )
 
 target_include_directories(beadando
@@ -20,4 +22,6 @@ add_shaders(beadando
         triangle_in.frag SPV_triangle_in_frag
         crystal.vert SPV_crystal_vert
         crystal.frag SPV_crystal_frag
+        star.vert SPV_star_vert
+        star.frag SPV_star_frag
 )

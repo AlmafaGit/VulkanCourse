@@ -18,6 +18,7 @@
 #include "crystal.h"
 #include "imgui_integration.h"
 #include "pedestal.h"
+#include "star.h"
 #include "swapchain.h"
 #include "wrappers.h"
 
@@ -104,7 +105,7 @@ int main(int /*argc*/, char** /*argv*/)
 
     std::vector<const char*> extensions(glfwExtensions, glfwExtensions + count);
 
-    Context    context("03_triangle_vertex", true);
+    Context    context("beadando", true);
     VkInstance instance = context.CreateInstance({}, extensions);
 
     // Create the window to render onto
@@ -112,7 +113,7 @@ int main(int /*argc*/, char** /*argv*/)
     uint32_t    windowHeight = 800;
     GLFWwindow* window       = glfwCreateWindow(windowWidth, windowHeight, "beadando", NULL, NULL);
 
-    Camera camera({windowWidth, windowHeight}, 45.0f, 0.1f, 100.0f);
+    Camera camera({windowWidth, windowHeight}, 50.0f, 0.1f, 100.0f);
 
     IMGUIIntegration imIntegration;
     imIntegration.Init(window);
@@ -160,6 +161,9 @@ int main(int /*argc*/, char** /*argv*/)
 
     Crystal crystal;
     crystal.Create(context, swapchain.format(), sizeof(Camera::CameraPushConstant));
+
+    Star star;
+    star.Create(context, swapchain.format(), sizeof(Camera::CameraPushConstant));
 
     glfwShowWindow(window);
 
@@ -287,6 +291,7 @@ int main(int /*argc*/, char** /*argv*/)
 
             pedestal.Draw(cmdBuffer);
             crystal.Draw(cmdBuffer);
+            star.Draw(cmdBuffer);
 
             // Render things
             imIntegration.Draw(cmdBuffer);
@@ -330,6 +335,7 @@ int main(int /*argc*/, char** /*argv*/)
     camera.Destroy(device);
     pedestal.Destroy(context);
     crystal.Destroy(context);
+    star.Destroy(context);
     swapchain.Destroy();
     context.Destroy();
 
