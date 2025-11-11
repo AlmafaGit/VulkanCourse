@@ -1,4 +1,4 @@
-# VKCourse
+# Beadando
 
 To build:
 ```sh
@@ -6,9 +6,9 @@ $ cmake -Bbuild -H. -DCMAKE_BUILD_TYPE=Debug
 $ make -C build/ -j4
 ```
 
-To run `01_window`:
+To run `beadando`:
 ```sh
-$ ./build/bin/01_window
+$ ./build/bin/beadando
 ```
 
 # Required packages
