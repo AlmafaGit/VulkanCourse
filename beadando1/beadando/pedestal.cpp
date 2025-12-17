@@ -11,32 +11,36 @@
 #include "descriptors.h"
 #include "texture.h"
 #include "wrappers.h"
+#include "vertex_tools.h"
 
 namespace {
 
 #include "triangle_in.frag_include.h"
 #include "triangle_in.vert_include.h"
 
-struct Vertex {
-    float x;
-    float y;
-    float z;
-    float u;
-    float v;
-    // normals;
-    float n1;
-    float n2;
-    float n3;
-};
 
 static constexpr float g_pedestalVertices[] = {
 #include "pedestal_vertices.inc"
 };
 
+std::vector<uint32_t> indexList = {
+    // Front face (A, B, C, D)
+    0, 2, 1, 1, 0, 3,
+    // Back face (E, F, G, H)
+    5, 4, 6, 7, 6, 4,
+    // Left face (A, D, H, E)
+    0, 3, 7, 0, 7, 4,
+    // Right face (C, B, G, F)
+    2, 6, 1, 2, 5, 6,
+    // Bottom face (A, C, F, E)
+    0, 5, 2, 0, 4, 5,
+    // Top face (D, B, G, H)
+    3, 1, 6, 6, 7, 3
+};
 
-static std::vector<Vertex> buildPedestal(const float* pedestalVertices, size_t arraySize)
+static std::vector<Vertex> buildPedestal(const float* pedestalVertices, const size_t arraySize, std::vector<uint32_t> indexList)
 {
-    size_t pedestalPerVertexItemCount = 3 + 2 + 3;
+    size_t pedestalPerVertexItemCount = 3 + 2;
 
     // Output format: { x, y, z, u, v, n1, n2, n3 }
     std::vector<Vertex> result; // 8db vertex
@@ -48,36 +52,16 @@ static std::vector<Vertex> buildPedestal(const float* pedestalVertices, size_t a
             pedestalVertices[i + 2],
             pedestalVertices[i + 3],
             pedestalVertices[i + 4],
-            pedestalVertices[i + 5],
-            pedestalVertices[i + 6],
-            pedestalVertices[i + 7],
+            0,
+            0,
+            0,
         };
         result.push_back(vertex);
     }
 
+    generateVertexNormals(result, indexList);
 
     return result;
-}
-
-//lehetne adattag, de ha mashol szamolnek akkor igy konnyebb masolgatni kodot :S
-static std::vector<uint32_t> buildIndexList()
-{
-    std::vector<uint32_t> indexList = {
-        // Front face (A, B, C, D)
-        0, 2, 1, 1, 0, 3,
-        // Back face (E, F, G, H)
-        5, 4, 6, 7, 6, 4,
-        // Left face (A, D, H, E)
-        0, 3, 7, 0, 7, 4,
-        // Right face (C, B, G, F)
-        2, 6, 1, 2, 5, 6,
-        // Bottom face (A, C, F, E)
-        0, 5, 2, 0, 4, 5,
-        // Top face (D, B, G, H)
-        3, 1, 6, 6, 7, 3
-    };
-
-    return indexList;
 }
 
 
@@ -358,7 +342,7 @@ VkResult Pedestal::Create(Context& context, const VkFormat colorFormat, const ui
     vkDestroyShaderModule(device, shaderFragment, nullptr);
 
     {
-        const std::vector<Vertex> vertexData     = buildPedestal(g_pedestalVertices, std::size(g_pedestalVertices));
+        const std::vector<Vertex> vertexData     = buildPedestal(g_pedestalVertices, std::size(g_pedestalVertices), indexList);
         const uint32_t            vertexDataSize = vertexData.size() * sizeof(vertexData[0]);
         m_vertexBuffer =
             BufferInfo::Create(context.physicalDevice(), device, vertexDataSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
@@ -366,7 +350,7 @@ VkResult Pedestal::Create(Context& context, const VkFormat colorFormat, const ui
     }
 
     {
-        const std::vector<uint32_t> indexData     = buildIndexList();
+        const std::vector<uint32_t> indexData     = indexList;
         const uint32_t              indexDataSize = indexData.size() * sizeof(indexData[0]);
         m_indexBuffer =
             BufferInfo::Create(context.physicalDevice(), device, indexDataSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);

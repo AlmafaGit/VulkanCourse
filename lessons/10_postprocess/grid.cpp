@@ -332,7 +332,7 @@ VkResult Grid::Create(Context& context,
 
     m_device = device;
 
-    const std::string imagePath = "./images/checker-map_tho.png";
+    const std::string imagePath = "../../images/checker-map_tho.png";
     m_texture = *Texture::LoadFromFile(context.physicalDevice(), device, context.queue(), context.commandPool(),
                                        imagePath, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
 

@@ -1,6 +1,3 @@
-#include "glm/ext/matrix_transform.hpp"
-#include "glm/ext/vector_float3.hpp"
-#include "texture.h"
 #include <stdexcept>
 #include <vector>
 #include <vulkan/vulkan_core.h>
@@ -21,6 +18,9 @@
 #include "star.h"
 #include "swapchain.h"
 #include "wrappers.h"
+#include "texture.h"
+#include "lightning_pass.h"
+#include "shadow_map.h"
 
 #include <iostream>
 
@@ -28,23 +28,25 @@ void KeyCallback(GLFWwindow* window, int key, int /*scancode*/, int /*action*/, 
 {
     Camera* camera = reinterpret_cast<Camera*>(glfwGetWindowUserPointer(window));
 
-    switch (key) {
-    case GLFW_KEY_ESCAPE: {
-        glfwSetWindowShouldClose(window, GLFW_TRUE);
-        break;
-    }
-    case GLFW_KEY_W:
-        camera->Forward();
-        break;
-    case GLFW_KEY_S:
-        camera->Back();
-        break;
-    case GLFW_KEY_A:
-        camera->Left();
-        break;
-    case GLFW_KEY_D:
-        camera->Right();
-        break;
+    if (!ImGui::GetIO().WantCaptureKeyboard) {
+        switch (key) {
+        case GLFW_KEY_ESCAPE: {
+            glfwSetWindowShouldClose(window, GLFW_TRUE);
+            break;
+        }
+        case GLFW_KEY_W:
+            camera->Forward();
+            break;
+        case GLFW_KEY_S:
+            camera->Back();
+            break;
+        case GLFW_KEY_A:
+            camera->Left();
+            break;
+        case GLFW_KEY_D:
+            camera->Right();
+            break;
+        }
     }
 }
 
@@ -122,7 +124,6 @@ int main(int /*argc*/, char** /*argv*/)
     glfwSetKeyCallback(window, KeyCallback);
     glfwSetCursorPosCallback(window, MouseCallback);
 
-
     // We have the window, the instance, create a surface from the window to draw onto.
     // Create a Vulkan Surface using GLFW.
     // By using GLFW the current windowing system's surface is created (xcb, win32, etc..)
@@ -150,19 +151,51 @@ int main(int /*argc*/, char** /*argv*/)
 
     imIntegration.CreateContext(context, swapchain);
 
-    camera.CreateVK(context.device());
+    VkFormat depthFormat  = VK_FORMAT_D32_SFLOAT;
+    Texture  depthTexture = Texture::Create2D(context.physicalDevice(), context.device(), depthFormat,
+                                              swapchain.surfaceExtent(), VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
 
-    Texture depthTexture = Texture::Create2D(context.physicalDevice(), context.device(), VK_FORMAT_D32_SFLOAT,
-                                             swapchain.surfaceExtent(), VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+    struct LightInfo {
+        glm::vec4 position;
+    };
+
+    LightInfo lightData = {{5.0f, 3.0f, 5.0f, 0.0f}};
+
+    VkPipelineLayout          commonLayout            = VK_NULL_HANDLE;
+    const VkPushConstantRange commonPushConstantRange = {
+        .stageFlags = VK_SHADER_STAGE_ALL,
+        .offset     = 0,
+        .size       = sizeof(Camera::CameraPushConstant) + sizeof(LightInfo),
+    };
+    {
+        const VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
+            .sType                  = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+            .pNext                  = nullptr,
+            .flags                  = 0,
+            .setLayoutCount         = 0,
+            .pSetLayouts            = nullptr,
+            .pushConstantRangeCount = 1u,
+            .pPushConstantRanges    = &commonPushConstantRange,
+        };
+
+        VkResult result = vkCreatePipelineLayout(device, &pipelineLayoutCreateInfo, nullptr, &commonLayout);
+        assert(result == VK_SUCCESS);
+    }
 
     Pedestal pedestal;
-    pedestal.Create(context, swapchain.format(), sizeof(Camera::CameraPushConstant));
+    pedestal.Create(context, swapchain.format(), commonPushConstantRange.size);
 
     Crystal crystal;
-    crystal.Create(context, swapchain.format(), sizeof(Camera::CameraPushConstant));
+    crystal.Create(context, swapchain.format(), commonPushConstantRange.size);
 
-    Star star;
-    star.Create(context, swapchain.format(), sizeof(Camera::CameraPushConstant));
+    Star star1;
+    star1.Create(context, swapchain.format(), commonPushConstantRange.size);
+    Star star2;
+    star2.Create(context, swapchain.format(), commonPushConstantRange.size);
+    Star star3;
+    star3.Create(context, swapchain.format(), commonPushConstantRange.size);
+    Star star4;
+    star4.Create(context, swapchain.format(), commonPushConstantRange.size);
 
     glfwShowWindow(window);
 
@@ -180,10 +213,47 @@ int main(int /*argc*/, char** /*argv*/)
         .extent = swapchain.surfaceExtent(),
     };
 
+    ShadowMap shadowMap(depthFormat, commonPushConstantRange.size, swapchain.surfaceExtent());
+    shadowMap.Create(context);
+
+    DirectionalLight directionalLight = {
+        glm::vec4(0.0f, -1.0f, 0.0f, 1.0f),
+        glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f, 0.1f, 10.0f),
+        glm::mat4(1.0f),
+    };
+
+    LightningPass lightningPass(swapchain.format(), depthFormat, commonPushConstantRange.size,
+                                swapchain.surfaceExtent());
+    lightningPass.Create(context, shadowMap.Depth());
+
     int32_t color = 0;
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
         camera.Update();
+
+        //star animations
+        float t = (float)glfwGetTime();
+
+        auto orbit = [&](Star& s, float angleOffset) {
+            float angle = t + angleOffset;
+            float radius = 1.2f;
+
+            glm::vec3 pos = {
+                cos(angle) * radius,
+                1.0f,
+                sin(angle) * radius
+            };
+
+            s.position(glm::translate(glm::mat4(1.0f), pos));
+            s.rotation(glm::rotate(glm::mat4(1.0f), angle * 2.0f, glm::vec3(0, 1, 0)));
+        };
+
+        orbit(star1, 0.0f);
+        orbit(star2, glm::half_pi<float>());
+        orbit(star3, glm::pi<float>());
+        orbit(star4, glm::three_over_two_pi<float>());
+
+
         {
             ImGuiIO& io = ImGui::GetIO();
             imIntegration.NewFrame();
@@ -196,8 +266,30 @@ int main(int /*argc*/, char** /*argv*/)
             const glm::vec3& targetPosition = camera.lookAtPosition();
             ImGui::Text("Target position x: %.3f y: %.3f z: %.3f", targetPosition.x, targetPosition.y, targetPosition.z);
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+            ImGui::InputFloat3("Light Positon", (float*)&directionalLight.position);
             ImGui::End();
             ImGui::Render();
+
+            float cameraSpeed = static_cast<float>(3 * 0.05);
+
+            if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
+                lightData.position.x -= cameraSpeed / 2;
+            } else if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
+                lightData.position.x += cameraSpeed / 2;
+            } else if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
+                lightData.position.z += cameraSpeed / 2;
+            } else if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
+                lightData.position.z -= cameraSpeed / 2;
+            }
+
+            directionalLight.position = lightData.position;
+            directionalLight.view = glm::lookAt(
+                // camera.position(),
+                glm::vec3(directionalLight.position),
+                glm::vec3(0.0f), // Look at the center of the scene
+                glm::vec3(0.0f, 20.0f, 0.0f));
+            //directionalLight.view = camera.view();
+            //directionalLight.projection = camera.projection();
         }
 
         // Get new image to render to
@@ -219,65 +311,142 @@ int main(int /*argc*/, char** /*argv*/)
             };
             vkBeginCommandBuffer(cmdBuffer, &beginInfo);
 
-            swapchain.CmdTransitionToRender(cmdBuffer, swapchainImage, queueFamilyIdx);
+            // Shadowmap rendering
+            shadowMap.BeginPass(cmdBuffer);
 
-            // Begin render commands
-            const VkClearValue                 clearColor      = {{{color / 255.0f, 0.0f, 0.0f, 1.0f}}};
-            const VkRenderingAttachmentInfoKHR colorAttachment = {
-                .sType              = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
-                .pNext              = nullptr,
-                .imageView          = swapchainImage.view,
-                .imageLayout        = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                .resolveMode        = VK_RESOLVE_MODE_NONE,
-                .resolveImageView   = VK_NULL_HANDLE,
-                .resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-                .loadOp             = VK_ATTACHMENT_LOAD_OP_CLEAR,
-                .storeOp            = VK_ATTACHMENT_STORE_OP_STORE,
-                .clearValue         = clearColor,
+            shadowMap.updateLightInfo(cmdBuffer, directionalLight);
+
+            pedestal.Draw(cmdBuffer, false);
+            crystal.Draw(cmdBuffer, false);
+            star1.Draw(cmdBuffer, false);
+            star2.Draw(cmdBuffer, false);
+            star3.Draw(cmdBuffer, false);
+            star4.Draw(cmdBuffer, false);
+
+            shadowMap.EndPass(cmdBuffer);
+
+            // Color rendering
+            lightningPass.updateLightInfo(context, directionalLight);
+            lightningPass.BeginPass(cmdBuffer);
+
+            Camera::CameraPushConstant cameraData = {
+                .position   = glm::vec4(camera.position(), 0.0f),
+                .projection = camera.projection(),
+                .view       = camera.view(),
             };
-            const VkClearDepthStencilValue     depthClear      = {1.0f, 0u};
-            const VkRenderingAttachmentInfoKHR depthAttachment = {
-                .sType              = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR,
-                .pNext              = nullptr,
-                .imageView          = depthTexture.view(),
-                .imageLayout        = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                .resolveMode        = VK_RESOLVE_MODE_NONE,
-                .resolveImageView   = VK_NULL_HANDLE,
-                .resolveImageLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-                .loadOp             = VK_ATTACHMENT_LOAD_OP_CLEAR,
-                .storeOp            = VK_ATTACHMENT_STORE_OP_STORE,
-                .clearValue         = {.depthStencil = depthClear},
-            };
-            const VkRenderingInfoKHR renderInfo = {
-                .sType                = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR,
-                .pNext                = nullptr,
-                .flags                = 0,
-                .renderArea           = {.offset = {0, 0}, .extent = {(uint32_t)windowWidth, (uint32_t)windowHeight}},
-                .layerCount           = 1,
-                .viewMask             = 0,
-                .colorAttachmentCount = 1,
-                .pColorAttachments    = &colorAttachment,
-                .pDepthAttachment     = &depthAttachment,
-                .pStencilAttachment   = nullptr};
-            vkCmdBeginRendering(cmdBuffer, &renderInfo);
+            vkCmdPushConstants(cmdBuffer, commonLayout, VK_SHADER_STAGE_ALL, 0, sizeof(cameraData), &cameraData);
+            vkCmdPushConstants(cmdBuffer, commonLayout, VK_SHADER_STAGE_ALL, sizeof(cameraData), sizeof(lightData),
+                               &lightData);
 
-            vkCmdSetViewport(cmdBuffer, 0, 1, &viewport);
-            vkCmdSetScissor(cmdBuffer, 0, 1, &scissor);
-
-            camera.PushConstants(cmdBuffer);
-
-            pedestal.Draw(cmdBuffer);
-            crystal.Draw(cmdBuffer);
-            star.Draw(cmdBuffer);
+            pedestal.Draw(cmdBuffer, false);
+            crystal.Draw(cmdBuffer, false);
+            star1.Draw(cmdBuffer, false);
+            star2.Draw(cmdBuffer, false);
+            star3.Draw(cmdBuffer, false);
+            star4.Draw(cmdBuffer, false);
 
             // Render things
             imIntegration.Draw(cmdBuffer);
+            lightningPass.EndPass(cmdBuffer);
 
-            // End render commands
-            vkCmdEndRendering(cmdBuffer);
+            // BLIT
+            // swapchain.CmdTransitionToRender(cmdBuffer, swapchainImage, queueFamilyIdx);
+{
+                const VkImageMemoryBarrier2 renderStartBarrier = {
+                    .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+                    .pNext               = nullptr,
+                    .srcStageMask        = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
+                    .srcAccessMask       = VK_ACCESS_2_NONE,
+                    .dstStageMask        = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+                    .dstAccessMask       = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT,
+                    .oldLayout           = VK_IMAGE_LAYOUT_UNDEFINED,
+                    .newLayout           = VK_IMAGE_LAYOUT_GENERAL,
+                    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .image               = swapchainImage.image,
+                    .subresourceRange =
+                        {
+                            .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+                            .baseMipLevel   = 0,
+                            .levelCount     = 1,
+                            .baseArrayLayer = 0,
+                            .layerCount     = 1,
+                        },
+                };
+                const VkDependencyInfo startDependency = {
+                    .sType                    = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+                    .pNext                    = 0,
+                    .dependencyFlags          = 0,
+                    .memoryBarrierCount       = 0,
+                    .pMemoryBarriers          = nullptr,
+                    .bufferMemoryBarrierCount = 0,
+                    .pBufferMemoryBarriers    = nullptr,
+                    .imageMemoryBarrierCount  = 1,
+                    .pImageMemoryBarriers     = &renderStartBarrier,
+                };
+                vkCmdPipelineBarrier2(cmdBuffer, &startDependency);
+            }
+            const VkImageBlit region = {
+                .srcSubresource =
+                    {
+                        .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+                        .mipLevel       = 0,
+                        .baseArrayLayer = 0,
+                        .layerCount     = 1,
+                    },
+                .srcOffsets = {{0, 0, 0},
+                               {(int32_t)swapchain.surfaceExtent().width, (int32_t)swapchain.surfaceExtent().height,
+                                1}},
+                .dstSubresource =
+                    {
+                        .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+                        .mipLevel       = 0,
+                        .baseArrayLayer = 0,
+                        .layerCount     = 1,
+                    },
+                .dstOffsets = {{0, 0, 0},
+                               {(int32_t)swapchain.surfaceExtent().width, (int32_t)swapchain.surfaceExtent().height,
+                                1}},
+            };
+            vkCmdBlitImage(cmdBuffer, lightningPass.colorOutput().image(), VK_IMAGE_LAYOUT_GENERAL,
+                           swapchainImage.image, VK_IMAGE_LAYOUT_GENERAL, 1, &region, VK_FILTER_LINEAR);
 
-            // Finish up recording
-            swapchain.CmdTransitionToPresent(cmdBuffer, swapchainImage, queueFamilyIdx);
+            {
+                const VkImageMemoryBarrier2 renderStartBarrier = {
+                    .sType               = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
+                    .pNext               = nullptr,
+                    .srcStageMask        = VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT,
+                    .srcAccessMask       = VK_ACCESS_2_NONE,
+                    .dstStageMask        = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+                    .dstAccessMask       = VK_ACCESS_2_NONE,
+                    .oldLayout           = VK_IMAGE_LAYOUT_GENERAL,
+                    .newLayout           = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                    .srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED,
+                    .image               = swapchainImage.image,
+                    .subresourceRange =
+                        {
+                            .aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT,
+                            .baseMipLevel   = 0,
+                            .levelCount     = 1,
+                            .baseArrayLayer = 0,
+                            .layerCount     = 1,
+                        },
+                };
+                const VkDependencyInfo startDependency = {
+                    .sType                    = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+                    .pNext                    = 0,
+                    .dependencyFlags          = 0,
+                    .memoryBarrierCount       = 0,
+                    .pMemoryBarriers          = nullptr,
+                    .bufferMemoryBarrierCount = 0,
+                    .pBufferMemoryBarriers    = nullptr,
+                    .imageMemoryBarrierCount  = 1,
+                    .pImageMemoryBarriers     = &renderStartBarrier,
+                };
+                vkCmdPipelineBarrier2(cmdBuffer, &startDependency);
+            }
+
             vkEndCommandBuffer(cmdBuffer);
         }
 
@@ -301,6 +470,11 @@ int main(int /*argc*/, char** /*argv*/)
         vkDeviceWaitIdle(device);
     }
 
+    shadowMap.Destroy(context);
+    lightningPass.Destroy(device);
+
+    vkDestroyPipelineLayout(device, commonLayout, nullptr);
+
     depthTexture.Destroy(context.device());
     imIntegration.Destroy(context);
 
@@ -312,7 +486,10 @@ int main(int /*argc*/, char** /*argv*/)
     camera.Destroy(device);
     pedestal.Destroy(context);
     crystal.Destroy(context);
-    star.Destroy(context);
+    star1.Destroy(context);
+    star2.Destroy(context);
+    star3.Destroy(context);
+    star4.Destroy(context);
     swapchain.Destroy();
     context.Destroy();
 

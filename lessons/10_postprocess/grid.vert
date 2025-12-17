@@ -33,7 +33,6 @@ void main() {
     out_uv = in_uv;
     out_uv.y = 1.0 - in_uv.y;
 
-    // TASK: emit normal and frags
     out_normal = mat3(transpose(inverse(constants.model))) * in_normal;
     out_fragPos = vec3(constants.model * vec4(in_position, 1.0f));
 }

@@ -18,27 +18,37 @@ namespace {
 #include "crystal.frag_include.h"
 #include "crystal.vert_include.h"
 
-struct Vertex {
-    float x;
-    float y;
-    float z;
-    //uv;
-    float u;
-    float v;
-    // normals;
-    float n1;
-    float n2;
-    float n3;
-};
 
 static constexpr float g_crystalVertices[] = {
 #include "crystal_vertices.inc"
 };
 
+std::vector<uint32_t> indexList = {
+    //BOTTOM HALF
+    0, 2, 1,
+    0, 3, 2,
+    0, 4, 3,
+    0, 5, 4,
+    0, 6, 5,
+    0, 7, 6,
+    0, 8, 7,
+    0, 1, 8,
+
+    //TOP HALF
+    9, 1, 2,
+    9, 2, 3,
+    9, 3, 4,
+    9, 4, 5,
+    9, 5, 6,
+    9, 6, 7,
+    9, 7, 8,
+    9, 8, 1,
+};
+
 //jobb lenne ha számítanám nem betölteném, de ahhoz számolni kéne, a normálokat is elég volt számolni (és még az se biztos hogy jó mert még nincs shading)
-static std::vector<Vertex> buildCrystal(const float* crystalVertices, size_t arraySize)
+static std::vector<Vertex> buildCrystal(const float* crystalVertices, const size_t arraySize, std::vector<uint32_t> indexList)
 {
-    size_t crystalPerVertexItemCount = 5;
+    size_t crystalPerVertexItemCount = 3 + 2;
 
     // Output format: { x, y, z, u, v, n1, n2, n3 }
     std::vector<Vertex> result; // 10db vertex
@@ -57,72 +67,9 @@ static std::vector<Vertex> buildCrystal(const float* crystalVertices, size_t arr
         result.push_back(vertex);
     }
 
-    glm::vec3 bottom_vertice(result[0].x, result[0].y, result[0].z);  //kristaly also csucs
-    glm::vec3 top_vertice(result.back().x, result.back().y, result.back().z);  //kristaly felso csucs
-
-    // haromszog normal vektorok -> osszegezzuk minden vertexhez (utana normalizaljuk oket vertex normalla)
-    for (size_t i = 1; i <= result.size() - 2; i++) {
-        size_t next = (i == 8) ? 1 : i + 1; // a jelenlegi vertex melletti vertex indexe (a gyurun), ami ha korbe erunk az elso vertex lesz, mert i = 9 a felso vertex lenne mar
-        glm::vec3 v1(result[i].x, result[i].y, result[i].z);
-        glm::vec3 v2(result[next].x, result[next].y, result[next].z);
-
-        glm::vec3 faceNormal1 = calculateNormal(v2, v1, bottom_vertice);
-        glm::vec3 faceNormal2 = calculateNormal(v2, v1, top_vertice);
-
-        // osszegzes
-        result[0].n1 += faceNormal1.x + faceNormal2.x;
-        result[0].n2 += faceNormal1.y + faceNormal2.y;
-        result[0].n3 += faceNormal1.z + faceNormal2.z;
-        result.back().n1 += faceNormal1.x + faceNormal2.x;
-        result.back().n2 += faceNormal1.y + faceNormal2.y;
-        result.back().n3 += faceNormal1.z + faceNormal2.z;
-
-        result[i].n1 += faceNormal1.x + faceNormal2.x;
-        result[i].n2 += faceNormal1.y + faceNormal2.y;
-        result[i].n3 += faceNormal1.z + faceNormal2.z;
-        result[next].n1 += faceNormal1.x + faceNormal2.x;
-        result[next].n2 += faceNormal1.y + faceNormal2.y;
-        result[next].n3 += faceNormal1.z + faceNormal2.z;
-    }
-
-    // Normalize all vertex normals
-    for (auto& v : result) {
-        glm::vec3 n(v.n1, v.n2, v.n3);
-        n = glm::normalize(n);
-        v.n1 = n.x;
-        v.n2 = n.y;
-        v.n3 = n.z;
-    }
+    generateVertexNormals(result, indexList);
 
     return result;
-}
-
-//lehetne adattag, de ha mashol szamolnek akkor igy konnyebb masolgatni kodot :S
-static std::vector<uint32_t> buildIndexList()
-{
-    std::vector<uint32_t> indexList = {
-        //BOTTOM HALF
-        0, 2, 1,
-        0, 3, 2,
-        0, 4, 3,
-        0, 5, 4,
-        0, 6, 5,
-        0, 7, 6,
-        0, 8, 7,
-        0, 1, 8,
-
-        //TOP HALF
-        9, 1, 2,
-        9, 2, 3,
-        9, 3, 4,
-        9, 4, 5,
-        9, 5, 6,
-        9, 6, 7,
-        9, 7, 8,
-        9, 8, 1,
-    };
-
-    return indexList;
 }
 
 
@@ -190,7 +137,7 @@ VkPipeline CreateSimplePipeline(const VkDevice         device,
         .flags                           = 0,
         .vertexBindingDescriptionCount   = 1u,
         .pVertexBindingDescriptions      = &bindingInfo,
-        .vertexAttributeDescriptionCount = 2u,
+        .vertexAttributeDescriptionCount = 3u,
         .pVertexAttributeDescriptions    = attributeInfos,
     };
 
@@ -402,7 +349,7 @@ VkResult Crystal::Create(Context& context, const VkFormat colorFormat, const uin
     vkDestroyShaderModule(device, shaderFragment, nullptr);
 
     {
-        const std::vector<Vertex> vertexData     = buildCrystal(g_crystalVertices, std::size(g_crystalVertices));
+        const std::vector<Vertex> vertexData     = buildCrystal(g_crystalVertices, std::size(g_crystalVertices), indexList);
         const uint32_t            vertexDataSize = vertexData.size() * sizeof(vertexData[0]);
         m_vertexBuffer =
             BufferInfo::Create(context.physicalDevice(), device, vertexDataSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
@@ -410,7 +357,7 @@ VkResult Crystal::Create(Context& context, const VkFormat colorFormat, const uin
     }
 
     {
-        const std::vector<uint32_t> indexData     = buildIndexList();
+        const std::vector<uint32_t> indexData     = indexList;
         const uint32_t              indexDataSize = indexData.size() * sizeof(indexData[0]);
         m_indexBuffer =
             BufferInfo::Create(context.physicalDevice(), device, indexDataSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);

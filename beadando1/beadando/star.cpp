@@ -10,33 +10,43 @@
 #include "context.h"
 #include "descriptors.h"
 #include "texture.h"
+#include "vertex_tools.h"
 #include "wrappers.h"
+
+#include <iostream>
 
 namespace {
 
 #include "star.frag_include.h"
 #include "star.vert_include.h"
 
-struct Vertex {
-    float x;
-    float y;
-    float z;
-    float u;
-    float v;
-    // normals;
-    float n1;
-    float n2;
-    float n3;
-};
 
 static constexpr float g_starVertices[] = {
 #include "star_vertices.inc"
 };
 
+std::vector<uint32_t> indexList = {
+    //FRONT LEFT (DEI, DIH)
+    3,4,8, 3,8,7,
+    //BACK LEFT (DHJ DJE)
+    3,7,9, 3,9,4,
+    //FRONT BOTTOM (AFI, AIE)
+    0,5,8, 0,8,4,
+    //BACK BOTTOM (AEJ, AJF)
+    0,4,9, 0,9,5,
+    //FRONT RIGHT (BGI, BIF)
+    1,6,8, 1,8,5,
+    //BACK RIGHT (BFJ, BJG)
+    1,5,9, 1,9,6,
+    //FRONT TOP (CHI, CIG)
+    2,7,8, 2,8,6,
+    //BACK TOP (CGJ, CJH)
+    2,6,9, 2,9,7
+};
 
-static std::vector<Vertex> buildStar(const float* starVertices, size_t arraySize)
+static std::vector<Vertex> buildStar(const float* starVertices, const size_t arraySize, const std::vector<uint32_t>& indexList)
 {
-    size_t starPerVertexItemCount = 3 + 2 + 3;
+    size_t starPerVertexItemCount = 3 + 2;
 
     // Output format: { x, y, z, u, v, n1, n2, n3 }
     std::vector<Vertex> result; // 8db vertex
@@ -48,40 +58,17 @@ static std::vector<Vertex> buildStar(const float* starVertices, size_t arraySize
             starVertices[i + 2],
             starVertices[i + 3],
             starVertices[i + 4],
-            starVertices[i + 5],
-            starVertices[i + 6],
-            starVertices[i + 7],
+            0,
+            0,
+            0,
         };
         result.push_back(vertex);
     }
 
+    generateVertexNormals(result, indexList);
+
 
     return result;
-}
-
-//lehetne adattag, de ha mashol szamolnek akkor igy konnyebb masolgatni kodot :S
-static std::vector<uint32_t> buildIndexList()
-{
-    std::vector<uint32_t> indexList = {
-        //FRONT LEFT (DEI, DIH)
-        3,4,8, 3,8,7,
-        //BACK LEFT (DHJ DJE)
-        3,7,9, 3,9,4,
-        //FRONT BOTTOM (AFI, AIE)
-        0,5,8, 0,8,4,
-        //BACK BOTTOM (AEJ, AJF)
-        0,4,9, 0,9,5,
-        //FRONT RIGHT (BGI, BIF)
-        1,6,8, 1,8,5,
-        //BACK RIGHT (BFJ, BJG)
-        1,5,9, 1,9,6,
-        //FRONT TOP (CHI, CIG)
-        2,7,8, 2,8,6,
-        //BACK TOP (CGJ, CJH)
-        2,6,9, 2,9,7
-    };
-
-    return indexList;
 }
 
 
@@ -361,7 +348,7 @@ VkResult Star::Create(Context& context, const VkFormat colorFormat, const uint32
     vkDestroyShaderModule(device, shaderFragment, nullptr);
 
     {
-        const std::vector<Vertex> vertexData     = buildStar(g_starVertices, std::size(g_starVertices));
+        const std::vector<Vertex> vertexData     = buildStar(g_starVertices, std::size(g_starVertices), indexList);
         const uint32_t            vertexDataSize = vertexData.size() * sizeof(vertexData[0]);
         m_vertexBuffer =
             BufferInfo::Create(context.physicalDevice(), device, vertexDataSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
@@ -369,7 +356,7 @@ VkResult Star::Create(Context& context, const VkFormat colorFormat, const uint32
     }
 
     {
-        const std::vector<uint32_t> indexData     = buildIndexList();
+        const std::vector<uint32_t> indexData     = indexList;
         const uint32_t              indexDataSize = indexData.size() * sizeof(indexData[0]);
         m_indexBuffer =
             BufferInfo::Create(context.physicalDevice(), device, indexDataSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
@@ -424,13 +411,15 @@ void Star::Draw(const VkCommandBuffer cmdBuffer, bool bindPipeline)
     if (bindPipeline) {
         vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
     }
+
     vkCmdPushConstants(cmdBuffer, m_pipelineLayout, VK_SHADER_STAGE_ALL, m_constantOffset,
-                       sizeof(ModelPushConstant), &modelData);
+                           sizeof(ModelPushConstant), &modelData);
 
     vkCmdBindDescriptorSets(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipelineLayout, 0, 1, &m_modelSet, 0,
-                                nullptr);
+                                    nullptr);
     VkDeviceSize nullOffset = 0u;
     vkCmdBindVertexBuffers(cmdBuffer, 0u, 1u, &m_vertexBuffer.buffer, &nullOffset);
     vkCmdBindIndexBuffer(cmdBuffer, m_indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdDrawIndexed(cmdBuffer, m_vertexCount, 4, 0, 0, 0);
+    vkCmdDrawIndexed(cmdBuffer, m_vertexCount, 1, 0, 0, 0);
 }
+
