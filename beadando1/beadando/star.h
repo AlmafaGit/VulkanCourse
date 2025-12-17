@@ -4,7 +4,7 @@
 
 #include "glm_config.h"
 #include "buffer.h"
-
+#include "texture.h"
 
 class Context;
 
@@ -43,4 +43,6 @@ private:
     VkDescriptorSetLayout m_descSetLayout = VK_NULL_HANDLE;
     VkDescriptorSet       m_modelSet      = VK_NULL_HANDLE;
     VkDevice              m_device        = VK_NULL_HANDLE;
+
+    Texture m_texture = {};
 };

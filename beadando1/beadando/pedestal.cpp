@@ -64,15 +64,15 @@ static std::vector<uint32_t> buildIndexList()
 {
     std::vector<uint32_t> indexList = {
         // Front face (A, B, C, D)
-        0, 1, 2, 1, 0, 3,
+        0, 2, 1, 1, 0, 3,
         // Back face (E, F, G, H)
-        4, 5, 6, 6, 7, 4,
+        5, 4, 6, 7, 6, 4,
         // Left face (A, D, H, E)
-        0, 3, 7, 7, 4, 0,
+        0, 3, 7, 0, 7, 4,
         // Right face (C, B, G, F)
-        2, 1, 6, 6, 5, 2,
+        2, 6, 1, 2, 5, 6,
         // Bottom face (A, C, F, E)
-        0, 2, 5, 5, 4, 0,
+        0, 5, 2, 0, 4, 5,
         // Top face (D, B, G, H)
         3, 1, 6, 6, 7, 3
     };
@@ -326,10 +326,22 @@ VkResult Pedestal::Create(Context& context, const VkFormat colorFormat, const ui
 
     m_device = device;
 
+    const std::string imagePath = "../../images/pedestal_texture.jpg";
+    m_texture = *Texture::LoadFromFile(context.physicalDevice(), device, context.queue(), context.commandPool(),
+                                       imagePath, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
+
+
     const std::vector<VkDescriptorSetLayoutBinding> layoutBindings = {
         VkDescriptorSetLayoutBinding{
             .binding            = 0,
             .descriptorType     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .descriptorCount    = 1,
+            .stageFlags         = VK_SHADER_STAGE_ALL,
+            .pImmutableSamplers = nullptr,
+        },
+        VkDescriptorSetLayoutBinding{
+            .binding            = 1,
+            .descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
             .descriptorCount    = 1,
             .stageFlags         = VK_SHADER_STAGE_ALL,
             .pImmutableSamplers = nullptr,
@@ -374,6 +386,7 @@ VkResult Pedestal::Create(Context& context, const VkFormat colorFormat, const ui
 
     DescriptorSetMgmt setMgmt(m_modelSet);
     setMgmt.SetBuffer(0, m_uniformBuffer.buffer);
+    setMgmt.SetImage(1, m_texture.view(), m_texture.sampler());
     setMgmt.Update(device);
 
     return VK_SUCCESS;
@@ -383,6 +396,7 @@ void Pedestal::Destroy(Context& context)
 {
     const VkDevice device = context.device();
 
+    m_texture.Destroy(device);
     m_uniformBuffer.Destroy(device);
     m_vertexBuffer.Destroy(device);
     m_indexBuffer.Destroy(device);

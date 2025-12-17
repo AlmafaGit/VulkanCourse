@@ -330,10 +330,21 @@ VkResult Star::Create(Context& context, const VkFormat colorFormat, const uint32
 
     m_device = device;
 
+    const std::string imagePath = "../../images/star_texture.png";
+    m_texture = *Texture::LoadFromFile(context.physicalDevice(), device, context.queue(), context.commandPool(),
+                                       imagePath, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
+
     const std::vector<VkDescriptorSetLayoutBinding> layoutBindings = {
         VkDescriptorSetLayoutBinding{
             .binding            = 0,
             .descriptorType     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .descriptorCount    = 1,
+            .stageFlags         = VK_SHADER_STAGE_ALL,
+            .pImmutableSamplers = nullptr,
+        },
+        VkDescriptorSetLayoutBinding{
+            .binding            = 1,
+            .descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
             .descriptorCount    = 1,
             .stageFlags         = VK_SHADER_STAGE_ALL,
             .pImmutableSamplers = nullptr,
@@ -378,6 +389,7 @@ VkResult Star::Create(Context& context, const VkFormat colorFormat, const uint32
 
     DescriptorSetMgmt setMgmt(m_modelSet);
     setMgmt.SetBuffer(0, m_uniformBuffer.buffer);
+    setMgmt.SetImage(1, m_texture.view(), m_texture.sampler());
     setMgmt.Update(device);
 
     return VK_SUCCESS;
@@ -387,6 +399,7 @@ void Star::Destroy(Context& context)
 {
     const VkDevice device = context.device();
 
+    m_texture.Destroy(device);
     m_uniformBuffer.Destroy(device);
     m_vertexBuffer.Destroy(device);
     m_indexBuffer.Destroy(device);

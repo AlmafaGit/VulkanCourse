@@ -15,7 +15,9 @@ layout(push_constant) uniform PushConstants {
     layout(offset = 4*4*4*2) mat4 model;
 } constants;
 
-layout(location = 0) out vec3 out_color;
+layout(location = 0) out vec2 out_uv;
+layout(location = 1) out vec3 out_normal;
+layout(location = 2) out vec3 out_fragPos;
 
 void main() { //ebben nagyban segített a chatgpt rossz vagyok matekból meg már annyi transzformáció van itt amúgyis, de ha kell eltudnám mondani nagyjából mit csinál szóval allgud (főleg hogy sokat kellet debuggolni mert gpt fogyi)
 
@@ -62,6 +64,7 @@ void main() { //ebben nagyban segített a chatgpt rossz vagyok matekból meg má
                 * constants.model
                 * vec4(current_pos, 1.0f);
 
-    vec3 gradient = normalize(in_position.xyz) * 0.5f + 0.8f;
-    out_color = mix(UBO.color.rgb, gradient, 0.7f);
+    out_uv = in_uv;
+    out_normal = mat3(transpose(inverse(constants.model))) * in_normal;
+    out_fragPos = vec3(constants.model * vec4(in_position, 1.0f));
 }

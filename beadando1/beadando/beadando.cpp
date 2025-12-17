@@ -141,8 +141,7 @@ int main(int /*argc*/, char** /*argv*/)
     VkResult  swapchainCreated = swapchain.Create();
     assert(swapchainCreated == VK_SUCCESS);
 
-    VkCommandPool cmdPool = VK_NULL_HANDLE;
-    CreateCommandPool(device, queueFamilyIdx, &cmdPool); // TODO: check result
+    VkCommandPool cmdPool = context.CreateCommandPool();
 
     std::vector<VkCommandBuffer> cmdBuffers = AllocateCommandBuffers(device, cmdPool, swapchain.images().size());
 

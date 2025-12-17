@@ -11,6 +11,7 @@
 #include "descriptors.h"
 #include "texture.h"
 #include "wrappers.h"
+#include "vertex_tools.h"
 
 namespace {
 
@@ -21,6 +22,9 @@ struct Vertex {
     float x;
     float y;
     float z;
+    //uv;
+    float u;
+    float v;
     // normals;
     float n1;
     float n2;
@@ -34,9 +38,9 @@ static constexpr float g_crystalVertices[] = {
 //jobb lenne ha számítanám nem betölteném, de ahhoz számolni kéne, a normálokat is elég volt számolni (és még az se biztos hogy jó mert még nincs shading)
 static std::vector<Vertex> buildCrystal(const float* crystalVertices, size_t arraySize)
 {
-    size_t crystalPerVertexItemCount = 3;
+    size_t crystalPerVertexItemCount = 5;
 
-    // Output format: { x, y, z, n1, n2, n3 }
+    // Output format: { x, y, z, u, v, n1, n2, n3 }
     std::vector<Vertex> result; // 10db vertex
 
     for( size_t i = 0; i < arraySize; i += crystalPerVertexItemCount ) {
@@ -44,6 +48,8 @@ static std::vector<Vertex> buildCrystal(const float* crystalVertices, size_t arr
             crystalVertices[i],
             crystalVertices[i + 1],
             crystalVertices[i + 2],
+            crystalVertices[i + 3],
+            crystalVertices[i + 4],
             0,
             0,
             0,
@@ -51,19 +57,19 @@ static std::vector<Vertex> buildCrystal(const float* crystalVertices, size_t arr
         result.push_back(vertex);
     }
 
-    glm::vec3 bottom_vertice(result[0].x, result[0].y, result[0].z);
-    glm::vec3 top_vertice(result.back().x, result.back().y, result.back().z);
+    glm::vec3 bottom_vertice(result[0].x, result[0].y, result[0].z);  //kristaly also csucs
+    glm::vec3 top_vertice(result.back().x, result.back().y, result.back().z);  //kristaly felso csucs
 
-    // Compute face normals
+    // haromszog normal vektorok -> osszegezzuk minden vertexhez (utana normalizaljuk oket vertex normalla)
     for (size_t i = 1; i <= result.size() - 2; i++) {
-        size_t next = (i == 8) ? 1 : i + 1;
+        size_t next = (i == 8) ? 1 : i + 1; // a jelenlegi vertex melletti vertex indexe (a gyurun), ami ha korbe erunk az elso vertex lesz, mert i = 9 a felso vertex lenne mar
         glm::vec3 v1(result[i].x, result[i].y, result[i].z);
         glm::vec3 v2(result[next].x, result[next].y, result[next].z);
 
-        glm::vec3 faceNormal1 = glm::normalize(glm::cross(v2 - bottom_vertice, v1 - bottom_vertice));
-        glm::vec3 faceNormal2 = glm::normalize(glm::cross(v1 - top_vertice, v2 - top_vertice));
+        glm::vec3 faceNormal1 = calculateNormal(v2, v1, bottom_vertice);
+        glm::vec3 faceNormal2 = calculateNormal(v2, v1, top_vertice);
 
-        // Accumulate
+        // osszegzes
         result[0].n1 += faceNormal1.x + faceNormal2.x;
         result[0].n2 += faceNormal1.y + faceNormal2.y;
         result[0].n3 += faceNormal1.z + faceNormal2.z;
@@ -162,9 +168,16 @@ VkPipeline CreateSimplePipeline(const VkDevice         device,
             .format   = VK_FORMAT_R32G32B32_SFLOAT,
             .offset   = 0u,
         },
-        // Normal inputs
+        //uv inputs
         {
             .location = 1,
+            .binding  = 0,
+            .format   = VK_FORMAT_R32G32_SFLOAT,
+            .offset   = offsetof(Vertex, u),
+        },
+        // Normal inputs
+        {
+            .location = 2,
             .binding  = 0,
             .format   = VK_FORMAT_R32G32B32_SFLOAT,
             .offset   = offsetof(Vertex, n1),
@@ -212,7 +225,7 @@ VkPipeline CreateSimplePipeline(const VkDevice         device,
         .flags                   = 0,
         .depthClampEnable        = VK_FALSE,
         .rasterizerDiscardEnable = VK_FALSE,
-        .polygonMode             = VK_POLYGON_MODE_LINE,
+        .polygonMode             = VK_POLYGON_MODE_FILL,
         .cullMode                = VK_CULL_MODE_NONE,
         .frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE,
         .depthBiasEnable         = VK_FALSE,
@@ -358,10 +371,21 @@ VkResult Crystal::Create(Context& context, const VkFormat colorFormat, const uin
 
     m_device = device;
 
+    const std::string imagePath = "../../images/crystal_texture.jpg";
+    m_texture = *Texture::LoadFromFile(context.physicalDevice(), device, context.queue(), context.commandPool(),
+                                       imagePath, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
+
     const std::vector<VkDescriptorSetLayoutBinding> layoutBindings = {
         VkDescriptorSetLayoutBinding{
             .binding            = 0,
             .descriptorType     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+            .descriptorCount    = 1,
+            .stageFlags         = VK_SHADER_STAGE_ALL,
+            .pImmutableSamplers = nullptr,
+        },
+        VkDescriptorSetLayoutBinding{
+            .binding            = 1,
+            .descriptorType     = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
             .descriptorCount    = 1,
             .stageFlags         = VK_SHADER_STAGE_ALL,
             .pImmutableSamplers = nullptr,
@@ -406,6 +430,7 @@ VkResult Crystal::Create(Context& context, const VkFormat colorFormat, const uin
 
     DescriptorSetMgmt setMgmt(m_modelSet);
     setMgmt.SetBuffer(0, m_uniformBuffer.buffer);
+    setMgmt.SetImage(1, m_texture.view(), m_texture.sampler());
     setMgmt.Update(device);
 
     return VK_SUCCESS;
@@ -415,6 +440,7 @@ void Crystal::Destroy(Context& context)
 {
     const VkDevice device = context.device();
 
+    m_texture.Destroy(device);
     m_uniformBuffer.Destroy(device);
     m_vertexBuffer.Destroy(device);
     m_indexBuffer.Destroy(device);
@@ -435,7 +461,6 @@ void Crystal::Draw(const VkCommandBuffer cmdBuffer, bool bindPipeline)
     };
 
     modelData.model = glm::rotate( glm::translate(modelData.model, glm::vec3(0.0f, 1.0f, 0.0f)), data.time, glm::vec3(0.0f, 1.0f, 0.0f));
-
 
     if (bindPipeline) {
         vkCmdBindPipeline(cmdBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, m_pipeline);
