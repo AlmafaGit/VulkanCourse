@@ -30,5 +30,5 @@ void main() {
 
     out_uv = in_uv;
     out_fragPos = worldPos.xyz;
-    out_normal = mat3(transpose(inverse(constants.model))) * in_normal;
+    out_normal = normalize(mat3(transpose(inverse(constants.model))) * in_normal);
 }

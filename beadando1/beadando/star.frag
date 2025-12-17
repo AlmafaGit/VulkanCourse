@@ -60,5 +60,5 @@ void main() {
     vec3 specular = 1.7f * spec * vec3(1.0f, 1.0f, 1.0f);
 
     vec3 result = (ambient + diffuse + specular) * pixel.rgb;
-    out_color = vec4(result, 1.0f);
+    out_color = vec4(pixel.rgb, 1.0f);
 }
