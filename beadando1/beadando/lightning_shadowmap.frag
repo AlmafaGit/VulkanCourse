@@ -17,7 +17,9 @@ layout(push_constant) uniform PushConstants {
     vec4 cameraPosition;
     mat4 projection;
     mat4 view;
-    vec4 lightPosition;
+    // Light
+    vec4 light1Position;
+    vec4 light2Position;
     // model spec
     mat4 model;
 } constants;
@@ -68,7 +70,7 @@ float PCFShadow(vec4 fragPosLightSpace)
     float currentDepth = projCoords.z;
 
     vec3 normal = normalize(in_normal);
-    vec3 lightDir = normalize(constants.lightPosition.xyz - in_fragPos);
+    vec3 lightDir = normalize(constants.light1Position.xyz - in_fragPos);
     float bias = max(0.01 * (1.0 - dot(normal, lightDir)), 0.001);
     float shadow = 0.0;
 
@@ -95,7 +97,7 @@ void main() {
     vec4 pixel = texture(modelTexture, in_uv);
 
     // distance based attenuation
-    float distance = length(constants.lightPosition.xyz - in_fragPos);
+    float distance = length(constants.light1Position.xyz - in_fragPos);
     float attenuation = 1.0 / (light.constant + light.linear * distance +
                 light.quadratic * (distance * distance));
 
@@ -105,7 +107,7 @@ void main() {
 
     // diffuse
     vec3 norm = normalize(in_normal);
-    vec3 lightDir = normalize(constants.lightPosition.xyz - in_fragPos);
+    vec3 lightDir = normalize(constants.light1Position.xyz - in_fragPos);
 
     float diff = max(dot(norm, lightDir), 0.0);
     vec3 diffuse = diff * lightColor; //* attenuation;

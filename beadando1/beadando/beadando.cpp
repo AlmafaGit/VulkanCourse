@@ -159,13 +159,15 @@ int main(int /*argc*/, char** /*argv*/)
         glm::vec4 position;
     };
 
-    LightInfo lightData = {{5.0f, 3.0f, 5.0f, 0.0f}};
+    LightInfo lightData1 = {{0.0f, 3.0f, 20.0f, 0.0f},};
+
+    LightInfo lightData2 = {{0.0f, 3.0f, -20.0f, 0.0f}};
 
     VkPipelineLayout          commonLayout            = VK_NULL_HANDLE;
     const VkPushConstantRange commonPushConstantRange = {
         .stageFlags = VK_SHADER_STAGE_ALL,
         .offset     = 0,
-        .size       = sizeof(Camera::CameraPushConstant) + sizeof(LightInfo),
+        .size       = sizeof(Camera::CameraPushConstant) + sizeof(LightInfo) * 2,
     };
     {
         const VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo = {
@@ -216,7 +218,13 @@ int main(int /*argc*/, char** /*argv*/)
     ShadowMap shadowMap(depthFormat, commonPushConstantRange.size, swapchain.surfaceExtent());
     shadowMap.Create(context);
 
-    DirectionalLight directionalLight = {
+    DirectionalLight directionalLight1 = {
+        glm::vec4(0.0f, -1.0f, 0.0f, 1.0f),
+        glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f, 0.1f, 10.0f),
+        glm::mat4(1.0f),
+    };
+
+    DirectionalLight directionalLight2 = {
         glm::vec4(0.0f, -1.0f, 0.0f, 1.0f),
         glm::ortho(-5.0f, 5.0f, -5.0f, 5.0f, 0.1f, 10.0f),
         glm::mat4(1.0f),
@@ -266,30 +274,34 @@ int main(int /*argc*/, char** /*argv*/)
             const glm::vec3& targetPosition = camera.lookAtPosition();
             ImGui::Text("Target position x: %.3f y: %.3f z: %.3f", targetPosition.x, targetPosition.y, targetPosition.z);
             ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-            ImGui::InputFloat3("Light Positon", (float*)&directionalLight.position);
             ImGui::End();
             ImGui::Render();
 
             float cameraSpeed = static_cast<float>(3 * 0.05);
 
             if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS) {
-                lightData.position.x -= cameraSpeed / 2;
+                lightData1.position.x -= cameraSpeed / 2;
             } else if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS) {
-                lightData.position.x += cameraSpeed / 2;
+                lightData1.position.x += cameraSpeed / 2;
             } else if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS) {
-                lightData.position.z += cameraSpeed / 2;
+                lightData1.position.z += cameraSpeed / 2;
             } else if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS) {
-                lightData.position.z -= cameraSpeed / 2;
+                lightData1.position.z -= cameraSpeed / 2;
             }
 
-            directionalLight.position = lightData.position;
-            directionalLight.view = glm::lookAt(
+            directionalLight1.position = lightData1.position;
+            directionalLight1.view = glm::lookAt(
                 // camera.position(),
-                glm::vec3(directionalLight.position),
+                glm::vec3(directionalLight1.position),
                 glm::vec3(0.0f), // Look at the center of the scene
-                glm::vec3(0.0f, 20.0f, 0.0f));
-            //directionalLight.view = camera.view();
-            //directionalLight.projection = camera.projection();
+                glm::vec3(0.0f, -1.0f, 0.0f));
+
+            directionalLight2.position = lightData2.position;
+            directionalLight2.view = glm::lookAt(
+                // camera.position(),
+                glm::vec3(directionalLight2.position),
+                glm::vec3(0.0f), // Look at the center of the scene
+                glm::vec3(0.0f, -1.0f, 0.0f));
         }
 
         // Get new image to render to
@@ -314,7 +326,7 @@ int main(int /*argc*/, char** /*argv*/)
             // Shadowmap rendering
             shadowMap.BeginPass(cmdBuffer);
 
-            shadowMap.updateLightInfo(cmdBuffer, directionalLight);
+            shadowMap.updateLightInfo(cmdBuffer, directionalLight1);
 
             pedestal.Draw(cmdBuffer, false);
             crystal.Draw(cmdBuffer, false);
@@ -326,7 +338,7 @@ int main(int /*argc*/, char** /*argv*/)
             shadowMap.EndPass(cmdBuffer);
 
             // Color rendering
-            lightningPass.updateLightInfo(context, directionalLight);
+            lightningPass.updateLightInfo(context, directionalLight1);
             lightningPass.BeginPass(cmdBuffer);
 
             Camera::CameraPushConstant cameraData = {
@@ -335,8 +347,8 @@ int main(int /*argc*/, char** /*argv*/)
                 .view       = camera.view(),
             };
             vkCmdPushConstants(cmdBuffer, commonLayout, VK_SHADER_STAGE_ALL, 0, sizeof(cameraData), &cameraData);
-            vkCmdPushConstants(cmdBuffer, commonLayout, VK_SHADER_STAGE_ALL, sizeof(cameraData), sizeof(lightData),
-                               &lightData);
+            vkCmdPushConstants(cmdBuffer, commonLayout, VK_SHADER_STAGE_ALL, sizeof(cameraData), sizeof(lightData1), &lightData1);
+            vkCmdPushConstants(cmdBuffer, commonLayout, VK_SHADER_STAGE_ALL, sizeof(cameraData), sizeof(lightData2), &lightData2);
 
             pedestal.Draw(cmdBuffer, false);
             crystal.Draw(cmdBuffer, false);

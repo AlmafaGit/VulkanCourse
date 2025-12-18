@@ -14,37 +14,45 @@ layout(push_constant) uniform PushConstants {
     vec4 cameraPosition;
     mat4 projection;
     mat4 view;
-    vec4 lightPosition;
+    // Light
+    vec4 light1Position;
+    vec4 light2Position;
     // model spec
     mat4 model;
 } constants;
 
 vec3 lightColor = vec3(1.0f, 1.0f, 1.0f);
 
-void main() {
-    vec4 pixel = texture(modelTexture, in_uv);
-
-    // ambient
-    float ambientStrength = 0.1;
-    vec3 ambient = ambientStrength * lightColor;
+vec3 calcLight(vec3 lightPos, vec3 lightColor)
+{
+    vec3 normal = normalize(in_normal);
+    vec3 lightDir = normalize(lightPos - in_fragPos);
+    vec3 viewDir  = normalize(constants.cameraPosition.xyz - in_fragPos);
 
     // diffuse
-    vec3 norm = normalize(in_normal);
-    vec3 lightDir = normalize(constants.lightPosition.xyz - in_fragPos);
-
-    float diff = max(dot(norm, lightDir), 0.0);
+    float diff = max(dot(normal, lightDir), 0.0);
     vec3 diffuse = diff * lightColor;
 
     // specular
-    float specularStrength = 0.5;
-    vec3 viewDir = normalize(constants.cameraPosition.xyz - in_fragPos);
-    vec3 reflectDir = reflect(-lightDir, norm);
-    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-    vec3 specular = specularStrength * spec * lightColor;
+    vec3 reflectDir = reflect(-lightDir, normal);
+    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
+    vec3 specular = spec * lightColor;
 
-    // combine the colors
-    vec3 result = (ambient + diffuse + specular) * pixel.rgb;
+    return diffuse + specular;
+}
 
+void main() {
+    vec3 albedo = texture(modelTexture, in_uv).rgb;
+
+    vec3 ambient = 0.1 * albedo;
+
+    // light 1 (shadow comes later)
+    vec3 light1 = calcLight(constants.light1Position.xyz, lightColor);
+
+    // light 2 (NO shadow)
+    vec3 light2 = calcLight(constants.light2Position.xyz, lightColor);
+
+    vec3 result = ambient + (light1 + light2) * albedo;
     out_color = vec4(result, 1.0);
 
     gl_FragDepth = gl_FragCoord.z;
